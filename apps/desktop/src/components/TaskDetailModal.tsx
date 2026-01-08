@@ -261,29 +261,33 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
             {/* Status and Priority */}
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label
-                  htmlFor="status"
-                  className="block text-sm font-medium text-foreground mb-2"
-                >
-                  Status
-                </label>
-                <select
-                  id="status"
-                  value={formData.status}
-                  onChange={(e) => handleInputChange("status", e.target.value)}
-                  className="w-full p-3 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                  disabled={isSaving}
-                >
-                  {statusOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {task && (
+                <div>
+                  <label
+                    htmlFor="status"
+                    className="block text-sm font-medium text-foreground mb-2"
+                  >
+                    Status
+                  </label>
+                  <select
+                    id="status"
+                    value={formData.status}
+                    onChange={(e) =>
+                      handleInputChange("status", e.target.value)
+                    }
+                    className="w-full p-3 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    disabled={isSaving}
+                  >
+                    {statusOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
-              <div>
+              <div className={task ? "" : "col-span-2"}>
                 <label
                   htmlFor="priority"
                   className="block text-sm font-medium text-foreground mb-2"
@@ -310,7 +314,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
             {/* Time Estimates */}
             <div className="grid grid-cols-2 gap-4">
-              <div>
+              <div className={task ? "" : "col-span-2"}>
                 <label
                   htmlFor="estimatedHours"
                   className="block text-sm font-medium text-foreground mb-2"
@@ -335,30 +339,32 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 />
               </div>
 
-              <div>
-                <label
-                  htmlFor="actualHours"
-                  className="block text-sm font-medium text-foreground mb-2"
-                >
-                  <Clock className="inline h-4 w-4 mr-1" />
-                  Actual Hours
-                </label>
-                <input
-                  type="number"
-                  id="actualHours"
-                  value={formData.actualHours}
-                  onChange={(e) =>
-                    handleInputChange(
-                      "actualHours",
-                      parseInt(e.target.value) || 0
-                    )
-                  }
-                  min="0"
-                  step="0.5"
-                  className="w-full p-3 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                  disabled={isSaving}
-                />
-              </div>
+              {task && (
+                <div>
+                  <label
+                    htmlFor="actualHours"
+                    className="block text-sm font-medium text-foreground mb-2"
+                  >
+                    <Clock className="inline h-4 w-4 mr-1" />
+                    Actual Hours
+                  </label>
+                  <input
+                    type="number"
+                    id="actualHours"
+                    value={formData.actualHours}
+                    onChange={(e) =>
+                      handleInputChange(
+                        "actualHours",
+                        parseInt(e.target.value) || 0
+                      )
+                    }
+                    min="0"
+                    step="0.5"
+                    className="w-full p-3 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    disabled={isSaving}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Due Date and Milestone */}

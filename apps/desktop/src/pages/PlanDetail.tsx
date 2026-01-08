@@ -161,7 +161,7 @@ const PlanDetail: React.FC = () => {
         tasks: [...(plan.tasks || []), newTask],
       });
     }
-    if (id) loadPlan(id, true);
+    if (id) loadPlan(id);
   };
 
   const handleTaskUpdated = (updatedTask: Task) => {
@@ -220,7 +220,7 @@ const PlanDetail: React.FC = () => {
       }
 
       // Reload plan to show new tasks
-      await loadPlan(plan.id);
+      await loadPlan(plan.id, true);
     } catch (err) {
       console.error("Failed to generate tasks:", err);
       alert("Failed to generate tasks. Please try again.");
@@ -510,9 +510,32 @@ const PlanDetail: React.FC = () => {
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Tasks by Milestone */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-foreground">
-            Tasks by Milestone
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-foreground">
+              Tasks by Milestone
+            </h3>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={handleGenerateTasks}
+                disabled={isGeneratingTasks}
+                className="p-2 hover:bg-accent rounded-lg transition-colors text-primary"
+                title="Generate Tasks with AI"
+              >
+                {isGeneratingTasks ? (
+                  <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Sparkles className="h-5 w-5" />
+                )}
+              </button>
+              <button
+                onClick={handleCreateTask}
+                className="p-2 hover:bg-accent rounded-lg transition-colors"
+                title="Add Task"
+              >
+                <Plus className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
 
           {withMilestone.map(({ milestone, tasks }) => (
             <div
@@ -811,6 +834,18 @@ const PlanDetail: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Task Modal */}
+      <TaskDetailModal
+        task={selectedTask}
+        planId={plan.id}
+        milestones={plan.milestones || []}
+        isOpen={showTaskModal}
+        onClose={() => setShowTaskModal(false)}
+        onUpdate={handleTaskUpdated}
+        onCreate={handleTaskCreated}
+        onDelete={handleTaskDeleted}
+      />
     </div>
   );
 };
