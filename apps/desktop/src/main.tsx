@@ -10,10 +10,14 @@ postMessage({ payload: "removeLoading" }, "*");
 // Use contextBridge
 const ipcRenderer = window.ipcRenderer;
 
-// Listen for messages from the main process
-ipcRenderer.on("main-process-message", (_event: any, message: any) => {
-  console.log("Message from main process:", message);
-});
+// Listen for messages from the main process if ipcRenderer is available
+if (ipcRenderer) {
+  ipcRenderer.on("main-process-message", (_event: any, message: any) => {
+    console.log("Message from main process:", message);
+  });
+} else {
+  console.warn("ipcRenderer is not available");
+}
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

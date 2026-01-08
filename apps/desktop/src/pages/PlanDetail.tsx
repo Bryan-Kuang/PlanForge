@@ -19,7 +19,8 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { db, type Plan, type Task, type Milestone } from "../lib/database-api";
-import { aiService } from "../lib/ai-service";
+import { aiService, type AIGeneratedTask } from "../lib/ai-service";
+import TaskDetailModal from "../components/TaskDetailModal";
 
 const PlanDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -35,15 +36,20 @@ const PlanDetail: React.FC = () => {
   const [suggestionsError, setSuggestionsError] = useState<string | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
+  // Task Modal State
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | undefined>(undefined);
+  const [isGeneratingTasks, setIsGeneratingTasks] = useState(false);
+
   useEffect(() => {
     if (id) {
       loadPlan(id);
     }
   }, [id]);
 
-  const loadPlan = async (planId: string) => {
+  const loadPlan = async (planId: string, background = false) => {
     try {
-      setLoading(true);
+      if (!background) setLoading(true);
       setError(null);
       const planData = await db.getPlan(planId);
 
@@ -59,7 +65,7 @@ const PlanDetail: React.FC = () => {
       console.error("Failed to load plan:", err);
       setError("Failed to load plan details");
     } finally {
-      setLoading(false);
+      if (!background) setLoading(false);
     }
   };
 
@@ -84,7 +90,7 @@ const PlanDetail: React.FC = () => {
       await db.updateTask(taskId, { status: newStatus });
       // Reload plan to get updated data
       if (id) {
-        await loadPlan(id);
+        await loadPlan(id, true);
       }
     } catch (err) {
       console.error("Failed to update task status:", err);
@@ -135,6 +141,91 @@ const PlanDetail: React.FC = () => {
       );
     } finally {
       setLoadingSuggestions(false);
+    }
+  };
+
+  const handleCreateTask = () => {
+    setSelectedTask(undefined);
+    setShowTaskModal(true);
+  };
+
+  const handleEditTask = (task: Task) => {
+    setSelectedTask(task);
+    setShowTaskModal(true);
+  };
+
+  const handleTaskCreated = (newTask: Task) => {
+    if (plan) {
+      setPlan({
+        ...plan,
+        tasks: [...(plan.tasks || []), newTask],
+      });
+    }
+    if (id) loadPlan(id, true);
+  };
+
+  const handleTaskUpdated = (updatedTask: Task) => {
+    if (plan && plan.tasks) {
+      setPlan({
+        ...plan,
+        tasks: plan.tasks.map((t) =>
+          t.id === updatedTask.id ? updatedTask : t
+        ),
+      });
+    }
+  };
+
+  const handleTaskDeleted = (taskId: string) => {
+    if (plan && plan.tasks) {
+      setPlan({
+        ...plan,
+        tasks: plan.tasks.filter((t) => t.id !== taskId),
+      });
+    }
+  };
+
+  const handleGenerateTasks = async () => {
+    if (!plan) return;
+
+    setIsGeneratingTasks(true);
+    try {
+      if (!aiService.isInitialized()) {
+        const settings = await db.getSettings();
+        if (!settings.openaiApiKey) {
+          alert(
+            "Please configure OpenAI API Key in Settings to use AI features."
+          );
+          return;
+        }
+        await aiService.initialize(settings.openaiApiKey);
+      }
+
+      const existingTaskTitles = plan.tasks?.map((t) => t.title) || [];
+      const generatedTasks = await aiService.generateTasks(
+        plan.title,
+        plan.goal,
+        existingTaskTitles
+      );
+
+      // Create tasks in DB
+      for (const task of generatedTasks) {
+        await db.createTask({
+          planId: plan.id,
+          title: task.title,
+          description: task.description,
+          priority: task.priority,
+          estimatedHours: task.estimatedHours,
+          order: task.order,
+        });
+      }
+
+      // Reload plan to show new tasks
+      await loadPlan(plan.id);
+    } catch (err) {
+      console.error("Failed to generate tasks:", err);
+      alert("Failed to generate tasks. Please try again.");
+    } finally {
+      setIsGeneratingTasks(false);
     }
   };
 
@@ -495,7 +586,10 @@ const PlanDetail: React.FC = () => {
                           {task.priority}
                         </span>
                       )}
-                      <button className="p-1 hover:bg-accent rounded">
+                      <button
+                        onClick={() => handleEditTask(task)}
+                        className="p-1 hover:bg-accent rounded"
+                      >
                         <MoreHorizontal className="h-3 w-3" />
                       </button>
                     </div>
@@ -545,7 +639,10 @@ const PlanDetail: React.FC = () => {
                           {task.priority}
                         </span>
                       )}
-                      <button className="p-1 hover:bg-accent rounded">
+                      <button
+                        onClick={() => handleEditTask(task)}
+                        className="p-1 hover:bg-accent rounded"
+                      >
                         <MoreHorizontal className="h-3 w-3" />
                       </button>
                     </div>

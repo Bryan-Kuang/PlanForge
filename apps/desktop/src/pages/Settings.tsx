@@ -12,6 +12,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { db } from "../lib/database-api";
+import { aiService } from "../lib/ai-service";
 import { useTheme } from "../contexts/ThemeContext";
 
 const Settings: React.FC = () => {
@@ -36,8 +37,12 @@ const Settings: React.FC = () => {
   const loadSettings = async () => {
     try {
       const settings = await db.getSettings();
-      setApiKey(settings.openaiApiKey || "");
       setLanguage(settings.language);
+
+      const key = await aiService.getApiKey();
+      if (key) {
+        setApiKey(key);
+      }
     } catch (error) {
       console.error("Failed to load settings:", error);
     }
@@ -64,7 +69,6 @@ const Settings: React.FC = () => {
     setApiKeyStatus("idle");
 
     try {
-      const { aiService } = await import("../lib/ai-service");
       await aiService.initialize(apiKey.trim());
       setApiKeyStatus("success");
     } catch (error) {
@@ -78,10 +82,18 @@ const Settings: React.FC = () => {
   const handleSaveSettings = async () => {
     setIsSaving(true);
     try {
+      // Save language and other settings to DB
       await db.updateSettings({
-        openaiApiKey: apiKey.trim() || undefined,
         language,
       });
+
+      // Save API key securely
+      if (apiKey.trim()) {
+        await aiService.setApiKey(apiKey.trim());
+      } else {
+        await aiService.deleteApiKey();
+      }
+
       console.log("Settings saved successfully");
     } catch (error) {
       console.error("Failed to save settings:", error);

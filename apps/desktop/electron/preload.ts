@@ -22,6 +22,28 @@ contextBridge.exposeInMainWorld("ipcRenderer", {
   },
 });
 
+contextBridge.exposeInMainWorld("ai", {
+  initialize: (apiKey: string) => ipcRenderer.invoke("ai:initialize", apiKey),
+  generatePlan: (goal: string, timeframe?: string) =>
+    ipcRenderer.invoke("ai:generate-plan", goal, timeframe),
+  enhanceTask: (taskTitle: string, context: string) =>
+    ipcRenderer.invoke("ai:enhance-task", taskTitle, context),
+  suggestNextSteps: (
+    planTitle: string,
+    completedTasks: string[],
+    remainingTasks: string[]
+  ) =>
+    ipcRenderer.invoke(
+      "ai:suggest-next-steps",
+      planTitle,
+      completedTasks,
+      remainingTasks
+    ),
+  getApiKey: () => ipcRenderer.invoke("ai:get-api-key"),
+  setApiKey: (apiKey: string) => ipcRenderer.invoke("ai:set-api-key", apiKey),
+  deleteApiKey: () => ipcRenderer.invoke("ai:delete-api-key"),
+});
+
 // --------- Preload scripts loading ---------
 function domReady(
   condition: DocumentReadyState[] = ["complete", "interactive"]

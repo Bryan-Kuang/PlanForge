@@ -1,5 +1,3 @@
-import OpenAI from "openai";
-
 export interface AIGeneratedPlan {
   title: string;
   description: string;
@@ -33,171 +31,109 @@ export interface AISettings {
 }
 
 class AIService {
-  private openai: OpenAI | null = null;
-  private settings: AISettings | null = null;
+  private initialized = false;
 
-  async initialize(apiKey: string) {
-    if (!apiKey) {
-      throw new Error("OpenAI API key is required");
+  private isElectron(): boolean {
+    return (
+      typeof window !== "undefined" && (!!window.ai || !!window.ipcRenderer)
+    );
+  }
+
+  private async invokeAI(
+    method: keyof typeof window.ai | string,
+    ...args: any[]
+  ) {
+    // 1. Try window.ai (Preferred)
+    if (window.ai && typeof (window.ai as any)[method] === "function") {
+      return await (window.ai as any)[method](...args);
     }
 
-    // Validate API key format
-    if (!apiKey.startsWith("sk-")) {
-      throw new Error(
-        "Invalid API key format. OpenAI API keys should start with 'sk-'"
-      );
-    }
-
-    this.openai = new OpenAI({
-      apiKey: apiKey,
-      dangerouslyAllowBrowser: true, // Note: In production, API calls should go through your backend
-    });
-
-    this.settings = {
-      apiKey,
-      model: "gpt-4",
-      temperature: 0.7,
-    };
-
-    // Test the API key
-    try {
-      console.log("Testing OpenAI API key...");
-      const models = await this.openai.models.list();
-      console.log(
-        `✅ API key valid. Found ${models.data.length} available models.`
-      );
-      return true;
-    } catch (error) {
-      console.error("Failed to initialize OpenAI:", error);
-
-      // Provide more specific error messages
-      if (error instanceof Error) {
-        if (error.message.includes("401")) {
-          throw new Error(
-            "Invalid API key. Please check your OpenAI API key and try again."
-          );
-        } else if (error.message.includes("429")) {
-          throw new Error("API rate limit exceeded. Please try again later.");
-        } else if (error.message.includes("insufficient_quota")) {
-          throw new Error(
-            "Insufficient quota. Please check your OpenAI account billing."
-          );
-        } else {
-          throw new Error(`OpenAI API error: ${error.message}`);
-        }
+    // 2. Try ipcRenderer (Fallback)
+    if (window.ipcRenderer) {
+      const channelMap: Record<string, string> = {
+        initialize: "ai:initialize",
+        generatePlan: "ai:generate-plan",
+        enhanceTask: "ai:enhance-task",
+        suggestNextSteps: "ai:suggest-next-steps",
+        getApiKey: "ai:get-api-key",
+        setApiKey: "ai:set-api-key",
+        deleteApiKey: "ai:delete-api-key",
+      };
+      const channel = channelMap[method as string];
+      if (channel) {
+        return await window.ipcRenderer.invoke(channel, ...args);
       }
+    }
 
-      throw new Error("Invalid OpenAI API key or connection failed");
+    throw new Error(`AI provider not available for ${String(method)}`);
+  }
+
+  /**
+   * Initialize the AI service in the main process
+   */
+  async initialize(apiKey: string): Promise<boolean> {
+    if (!this.isElectron()) {
+      console.warn(
+        "AI service not available in browser. Using mock implementation."
+      );
+      this.initialized = true;
+      return true;
+    }
+    try {
+      this.initialized = await this.invokeAI("initialize", apiKey);
+      return this.initialized;
+    } catch (error) {
+      console.error("Failed to initialize AI service:", error);
+      throw error;
     }
   }
 
+  /**
+   * Generate a full plan for a given goal
+   */
   async generatePlan(
     goal: string,
     timeframe?: string
   ): Promise<AIGeneratedPlan> {
-    if (!this.openai) {
-      throw new Error(
-        "AI service not initialized. Please set up your OpenAI API key first."
-      );
-    }
-
-    const timeframeText = timeframe
-      ? `within ${timeframe}`
-      : "with no specific timeframe";
-
-    const prompt = `You are an expert project manager and goal-setting coach. Create a detailed, actionable plan for the following goal: "${goal}" ${timeframeText}.
-
-Please provide a comprehensive plan in the following JSON format:
-
-{
-  "title": "A concise, actionable title for the plan (max 60 characters)",
-  "description": "A brief description of what this plan will accomplish (2-3 sentences)",
-  "milestones": [
-    {
-      "title": "Milestone title",
-      "description": "What this milestone achieves",
-      "order": 1,
-      "estimatedDuration": "e.g., 2 weeks, 1 month"
-    }
-  ],
-  "tasks": [
-    {
-      "title": "Specific, actionable task title",
-      "description": "Detailed description of what needs to be done",
-      "priority": "HIGH|MEDIUM|LOW",
-      "estimatedHours": 8,
-      "milestoneIndex": 0,
-      "order": 1,
-      "prerequisites": ["Optional array of prerequisite task titles"]
-    }
-  ],
-  "estimatedTimeframe": "Overall estimated timeframe",
-  "tips": ["Helpful tips and advice for success"]
-}
-
-Guidelines:
-- Create 3-5 logical milestones that build upon each other
-- Generate 8-15 specific, actionable tasks
-- Distribute tasks across milestones logically
-- Use realistic time estimates
-- Include both high-level strategy and specific actions
-- Consider dependencies between tasks
-- Provide practical, actionable advice in tips
-- Make sure the plan is achievable and well-structured
-
-Focus on creating a plan that is specific, measurable, achievable, relevant, and time-bound (SMART).`;
-
-    try {
-      const completion = await this.openai.chat.completions.create({
-        model: this.settings!.model,
-        messages: [
+    if (!this.isElectron()) {
+      // Return mock plan for testing/preview
+      return {
+        title: `Plan for: ${goal}`,
+        description: "This is a mock plan generated in the browser preview.",
+        estimatedTimeframe: timeframe || "1 month",
+        milestones: [
           {
-            role: "system",
-            content:
-              "You are an expert project manager and goal-setting coach. Always respond with valid JSON only, no additional text or explanations.",
-          },
-          {
-            role: "user",
-            content: prompt,
+            title: "Phase 1: Planning",
+            description: "Initial planning phase",
+            order: 1,
+            estimatedDuration: "1 week",
           },
         ],
-        temperature: this.settings!.temperature,
-        max_tokens: 3000,
-      });
+        tasks: [
+          {
+            title: "Research requirements",
+            description: "Gather necessary information",
+            priority: "HIGH",
+            estimatedHours: 4,
+            order: 1,
+            milestoneIndex: 0,
+          },
+        ],
+        tips: ["This is a mock tip."],
+      };
+    }
 
-      const response = completion.choices[0]?.message?.content;
-      if (!response) {
-        throw new Error("No response from OpenAI");
-      }
-
-      // Clean the response to ensure it's valid JSON
-      const cleanedResponse = response
-        .trim()
-        .replace(/^```json\n?/, "")
-        .replace(/\n?```$/, "");
-
-      try {
-        const plan: AIGeneratedPlan = JSON.parse(cleanedResponse);
-
-        // Validate the response structure
-        if (!plan.title || !plan.milestones || !plan.tasks) {
-          throw new Error("Invalid plan structure from AI");
-        }
-
-        return plan;
-      } catch (parseError) {
-        console.error("Failed to parse AI response:", response);
-        throw new Error("Failed to parse AI response as JSON");
-      }
+    try {
+      return await this.invokeAI("generatePlan", goal, timeframe);
     } catch (error) {
-      console.error("OpenAI API error:", error);
-      if (error instanceof Error) {
-        throw new Error(`AI generation failed: ${error.message}`);
-      }
-      throw new Error("AI generation failed with unknown error");
+      console.error("Plan generation error:", error);
+      throw error;
     }
   }
 
+  /**
+   * Enhance a specific task with more details
+   */
   async enhanceTask(
     taskTitle: string,
     context: string
@@ -206,114 +142,106 @@ Focus on creating a plan that is specific, measurable, achievable, relevant, and
     estimatedHours: number;
     tips: string[];
   }> {
-    if (!this.openai) {
-      throw new Error("AI service not initialized");
+    if (!this.isElectron()) {
+      return {
+        description: `Enhanced description for ${taskTitle}`,
+        estimatedHours: 4,
+        tips: ["Mock tip for task enhancement"],
+      };
     }
 
-    const prompt = `Enhance this task with more details:
-
-Task: "${taskTitle}"
-Context: "${context}"
-
-Provide a JSON response with:
-{
-  "description": "Detailed description of what needs to be done (2-3 sentences)",
-  "estimatedHours": 8,
-  "tips": ["Practical tips for completing this task effectively"]
-}`;
-
     try {
-      const completion = await this.openai.chat.completions.create({
-        model: this.settings!.model,
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a helpful assistant. Respond with valid JSON only.",
-          },
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        temperature: 0.5,
-        max_tokens: 500,
-      });
-
-      const response = completion.choices[0]?.message?.content;
-      if (!response) {
-        throw new Error("No response from OpenAI");
-      }
-
-      const cleanedResponse = response
-        .trim()
-        .replace(/^```json\n?/, "")
-        .replace(/\n?```$/, "");
-      return JSON.parse(cleanedResponse);
+      return await this.invokeAI("enhanceTask", taskTitle, context);
     } catch (error) {
       console.error("Task enhancement error:", error);
-      throw new Error("Failed to enhance task with AI");
+      throw error;
     }
   }
 
   async suggestNextSteps(
-    planTitle: string,
+    planGoal: string,
     completedTasks: string[],
-    remainingTasks: string[]
+    pendingTasks: string[]
   ): Promise<string[]> {
-    if (!this.openai) {
-      throw new Error("AI service not initialized");
+    if (this.isElectron()) {
+      return await this.invokeAI(
+        "ai:suggest-next-steps",
+        planGoal,
+        completedTasks,
+        pendingTasks
+      );
     }
-
-    const prompt = `Given the following plan progress, suggest 3-5 next steps or recommendations:
-
-Plan: "${planTitle}"
-Completed Tasks: ${completedTasks.join(", ")}
-Remaining Tasks: ${remainingTasks.join(", ")}
-
-Provide a JSON array of actionable suggestions:
-["Suggestion 1", "Suggestion 2", "Suggestion 3"]`;
-
-    try {
-      const completion = await this.openai.chat.completions.create({
-        model: this.settings!.model,
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a helpful project advisor. Respond with a JSON array only.",
-          },
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        temperature: 0.7,
-        max_tokens: 300,
-      });
-
-      const response = completion.choices[0]?.message?.content;
-      if (!response) {
-        throw new Error("No response from OpenAI");
-      }
-
-      const cleanedResponse = response
-        .trim()
-        .replace(/^```json\n?/, "")
-        .replace(/\n?```$/, "");
-      return JSON.parse(cleanedResponse);
-    } catch (error) {
-      console.error("Next steps suggestion error:", error);
-      throw new Error("Failed to get AI suggestions");
-    }
+    // Mock data for web
+    return [
+      "Review project requirements",
+      "Set up development environment",
+      "Create initial project structure",
+    ];
   }
 
+  async generateTasks(
+    planTitle: string,
+    planGoal: string,
+    existingTasks: string[]
+  ): Promise<AIGeneratedTask[]> {
+    if (this.isElectron()) {
+      return await this.invokeAI(
+        "ai:generate-tasks",
+        planTitle,
+        planGoal,
+        existingTasks
+      );
+    }
+    // Mock data for web
+    return [
+      {
+        title: "Research competitors",
+        description: "Analyze top 3 competitors in the market",
+        priority: "HIGH",
+        estimatedHours: 4,
+        order: 1,
+      },
+      {
+        title: "Define user personas",
+        description: "Create detailed user personas for target audience",
+        priority: "MEDIUM",
+        estimatedHours: 3,
+        order: 2,
+      },
+    ];
+  }
+
+  async getApiKey(): Promise<string | null> {
+    if (!this.isElectron()) {
+      return null;
+    }
+    return await this.invokeAI("getApiKey");
+  }
+
+  async setApiKey(apiKey: string): Promise<void> {
+    if (!this.isElectron()) {
+      this.initialized = true;
+      return;
+    }
+    await this.invokeAI("setApiKey", apiKey);
+    // Also re-initialize if key is set
+    await this.initialize(apiKey);
+  }
+
+  async deleteApiKey(): Promise<void> {
+    if (!this.isElectron()) {
+      this.initialized = false;
+      return;
+    }
+    await this.invokeAI("deleteApiKey");
+    this.initialized = false;
+  }
+
+  /**
+   * Check if the service is initialized
+   */
   isInitialized(): boolean {
-    return this.openai !== null;
-  }
-
-  getSettings(): AISettings | null {
-    return this.settings;
+    return this.initialized;
   }
 }
 

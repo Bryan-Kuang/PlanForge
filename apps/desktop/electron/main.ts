@@ -3,6 +3,8 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import os from "node:os";
 import { DatabaseService } from "./database.js";
+import { AIServiceManager } from "./ai-manager.js";
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // The built directory structure
@@ -43,6 +45,7 @@ if (!app.requestSingleInstanceLock()) {
 
 let win: BrowserWindow | null = null;
 let db: DatabaseService | null = null;
+let aiService: AIServiceManager | null = null;
 let dbInitialized = false;
 
 // Here, you can also use other preload
@@ -58,6 +61,84 @@ function ensureDatabase() {
   }
   return db;
 }
+
+// Helper function to get AI Service instance with DB injection
+function getAIService(): AIServiceManager {
+  if (!aiService) {
+    aiService = new AIServiceManager();
+  }
+  if (db && dbInitialized) {
+    aiService.setDatabase(db);
+  }
+  return aiService;
+}
+
+// Initialize AI Service
+function initializeAIService() {
+  // Initial creation
+  getAIService();
+
+  // Register IPC handlers for AI
+  ipcMain.handle("ai:initialize", async (_, apiKey: string) => {
+    return await getAIService().initialize(apiKey);
+  });
+
+  ipcMain.handle(
+    "ai:generate-plan",
+    async (_, goal: string, timeframe?: string) => {
+      return await getAIService().generatePlan(goal, timeframe);
+    }
+  );
+
+  ipcMain.handle(
+    "ai:enhance-task",
+    async (_, taskTitle: string, context: string) => {
+      return await getAIService().enhanceTask(taskTitle, context);
+    }
+  );
+
+  ipcMain.handle(
+    "ai:suggest-next-steps",
+    async (
+      _,
+      planTitle: string,
+      completedTasks: string[],
+      remainingTasks: string[]
+    ) => {
+      return await getAIService().suggestNextSteps(
+        planTitle,
+        completedTasks,
+        remainingTasks
+      );
+    }
+  );
+
+  ipcMain.handle(
+    "ai:generate-tasks",
+    async (_, planTitle: string, planGoal: string, existingTasks: string[]) => {
+      return await getAIService().generateTasks(
+        planTitle,
+        planGoal,
+        existingTasks
+      );
+    }
+  );
+
+  ipcMain.handle("ai:get-api-key", async () => {
+    return await getAIService().getApiKey();
+  });
+
+  ipcMain.handle("ai:set-api-key", async (_, apiKey: string) => {
+    return await getAIService().setApiKey(apiKey);
+  });
+
+  ipcMain.handle("ai:delete-api-key", async () => {
+    return await getAIService().deleteApiKey();
+  });
+}
+
+// Initialize AI Service immediately
+initializeAIService();
 
 async function createWindow() {
   win = new BrowserWindow({
@@ -117,6 +198,10 @@ app.whenReady().then(async () => {
     await db.initialize();
     dbInitialized = true;
     console.log("Database initialized successfully");
+
+    if (aiService) {
+      aiService.setDatabase(db);
+    }
   } catch (error) {
     console.error("Failed to initialize database:", error);
 

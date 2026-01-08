@@ -15,33 +15,35 @@ import {
 import { db, type Task, type Milestone } from "../lib/database-api";
 
 interface TaskDetailModalProps {
-  task: Task;
+  task?: Task;
+  planId?: string;
   milestones: Milestone[];
   isOpen: boolean;
   onClose: () => void;
-  onUpdate: (updatedTask: Task) => void;
-  onDelete: (taskId: string) => void;
+  onUpdate?: (updatedTask: Task) => void;
+  onCreate?: (newTask: Task) => void;
+  onDelete?: (taskId: string) => void;
 }
 
 const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   task,
+  planId,
   milestones,
   isOpen,
   onClose,
   onUpdate,
+  onCreate,
   onDelete,
 }) => {
   const [formData, setFormData] = useState({
-    title: task.title,
-    description: task.description || "",
-    status: task.status,
-    priority: task.priority,
-    estimatedHours: task.estimatedHours || 0,
-    actualHours: task.actualHours || 0,
-    dueDate: task.dueDate
-      ? new Date(task.dueDate).toISOString().split("T")[0]
-      : "",
-    milestoneId: task.milestoneId || "",
+    title: "",
+    description: "",
+    status: "TODO",
+    priority: "MEDIUM",
+    estimatedHours: 0,
+    actualHours: 0,
+    dueDate: "",
+    milestoneId: "",
   });
 
   const [isSaving, setIsSaving] = useState(false);
@@ -78,18 +80,31 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      setFormData({
-        title: task.title,
-        description: task.description || "",
-        status: task.status,
-        priority: task.priority,
-        estimatedHours: task.estimatedHours || 0,
-        actualHours: task.actualHours || 0,
-        dueDate: task.dueDate
-          ? new Date(task.dueDate).toISOString().split("T")[0]
-          : "",
-        milestoneId: task.milestoneId || "",
-      });
+      if (task) {
+        setFormData({
+          title: task.title,
+          description: task.description || "",
+          status: task.status,
+          priority: task.priority,
+          estimatedHours: task.estimatedHours || 0,
+          actualHours: task.actualHours || 0,
+          dueDate: task.dueDate
+            ? new Date(task.dueDate).toISOString().split("T")[0]
+            : "",
+          milestoneId: task.milestoneId || "",
+        });
+      } else {
+        setFormData({
+          title: "",
+          description: "",
+          status: "TODO",
+          priority: "MEDIUM",
+          estimatedHours: 0,
+          actualHours: 0,
+          dueDate: "",
+          milestoneId: "",
+        });
+      }
       setError(null);
       setShowDeleteConfirm(false);
     }
@@ -107,28 +122,46 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     setError(null);
 
     try {
-      const updatedTask = await db.updateTask(task.id, {
-        title: formData.title.trim(),
-        description: formData.description.trim() || undefined,
-        status: formData.status as Task["status"],
-        priority: formData.priority as Task["priority"],
-        estimatedHours: formData.estimatedHours || undefined,
-        actualHours: formData.actualHours || undefined,
-        dueDate: formData.dueDate ? new Date(formData.dueDate) : undefined,
-        milestoneId: formData.milestoneId || undefined,
-      });
+      if (task) {
+        const updatedTask = await db.updateTask(task.id, {
+          title: formData.title.trim(),
+          description: formData.description.trim() || undefined,
+          status: formData.status as Task["status"],
+          priority: formData.priority as Task["priority"],
+          estimatedHours: formData.estimatedHours || undefined,
+          actualHours: formData.actualHours || undefined,
+          dueDate: formData.dueDate ? new Date(formData.dueDate) : undefined,
+          milestoneId: formData.milestoneId || undefined,
+        });
 
-      onUpdate(updatedTask);
+        if (onUpdate) onUpdate(updatedTask);
+      } else if (planId) {
+        const newTask = await db.createTask({
+          planId,
+          title: formData.title.trim(),
+          description: formData.description.trim() || undefined,
+          priority: formData.priority as Task["priority"],
+          estimatedHours: formData.estimatedHours || undefined,
+          dueDate: formData.dueDate ? new Date(formData.dueDate) : undefined,
+          milestoneId: formData.milestoneId || undefined,
+          order: 0, // Default order
+        });
+
+        if (onCreate) onCreate(newTask);
+      }
+
       onClose();
     } catch (err) {
-      console.error("Failed to update task:", err);
-      setError("Failed to update task. Please try again.");
+      console.error("Failed to save task:", err);
+      setError("Failed to save task. Please try again.");
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDelete = async () => {
+    if (!task || !onDelete) return;
+
     setIsDeleting(true);
     setError(null);
 
