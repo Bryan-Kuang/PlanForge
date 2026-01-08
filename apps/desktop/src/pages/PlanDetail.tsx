@@ -40,6 +40,10 @@ const PlanDetail: React.FC = () => {
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | undefined>(undefined);
   const [isGeneratingTasks, setIsGeneratingTasks] = useState(false);
+  const [showGenerateSettings, setShowGenerateSettings] = useState(false);
+  const [tasksToGenerate, setTasksToGenerate] = useState<number | undefined>(
+    undefined
+  );
 
   useEffect(() => {
     if (id) {
@@ -187,6 +191,9 @@ const PlanDetail: React.FC = () => {
   const handleGenerateTasks = async () => {
     if (!plan) return;
 
+    // Close settings if open
+    setShowGenerateSettings(false);
+
     setIsGeneratingTasks(true);
     try {
       if (!aiService.isInitialized()) {
@@ -204,7 +211,8 @@ const PlanDetail: React.FC = () => {
       const generatedTasks = await aiService.generateTasks(
         plan.title,
         plan.goal,
-        existingTaskTitles
+        existingTaskTitles,
+        tasksToGenerate
       );
 
       // Create tasks in DB
@@ -223,9 +231,13 @@ const PlanDetail: React.FC = () => {
       await loadPlan(plan.id, true);
     } catch (err) {
       console.error("Failed to generate tasks:", err);
-      alert("Failed to generate tasks. Please try again.");
+      const errorMessage =
+        err instanceof Error ? err.message : "Unknown error occurred";
+      alert(`Failed to generate tasks: ${errorMessage}`);
     } finally {
       setIsGeneratingTasks(false);
+      // Reset count after generation
+      setTasksToGenerate(undefined);
     }
   };
 
@@ -514,9 +526,60 @@ const PlanDetail: React.FC = () => {
             <h3 className="text-lg font-semibold text-foreground">
               Tasks by Milestone
             </h3>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 relative">
+              {showGenerateSettings && (
+                <div className="absolute top-12 right-0 bg-popover text-popover-foreground rounded-lg shadow-lg border border-border p-4 w-64 z-50">
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-sm">Generate Tasks</h4>
+                    <div className="space-y-2">
+                      <label className="text-xs text-muted-foreground">
+                        Number of tasks (Auto if empty)
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="Auto"
+                        value={tasksToGenerate || ""}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value);
+                          if (isNaN(val)) {
+                            setTasksToGenerate(undefined);
+                          } else if (val > 0) {
+                            setTasksToGenerate(val);
+                          }
+                        }}
+                        className="w-full p-2 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                      {tasksToGenerate && tasksToGenerate > 10 && (
+                        <div className="flex items-start space-x-2 text-yellow-600 dark:text-yellow-500 bg-yellow-50 dark:bg-yellow-900/20 p-2 rounded text-xs">
+                          <AlertCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                          <span>
+                            Generating many tasks may take longer and consume
+                            more tokens.
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex justify-end space-x-2 pt-2">
+                      <button
+                        onClick={() => setShowGenerateSettings(false)}
+                        className="px-3 py-1 text-xs hover:bg-accent rounded"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleGenerateTasks}
+                        disabled={isGeneratingTasks}
+                        className="px-3 py-1 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90"
+                      >
+                        Generate
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
               <button
-                onClick={handleGenerateTasks}
+                onClick={() => setShowGenerateSettings(!showGenerateSettings)}
                 disabled={isGeneratingTasks}
                 className="p-2 hover:bg-accent rounded-lg transition-colors text-primary"
                 title="Generate Tasks with AI"

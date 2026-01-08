@@ -4,7 +4,7 @@ require("electron");
 require("node:url");
 require("node:path");
 require("node:os");
-const main = require("./main-BZMSeEpa.js");
+const main = require("./main-DFAfMhoF.js");
 exports.MAIN_DIST = main.MAIN_DIST;
 exports.RENDERER_DIST = main.RENDERER_DIST;
 exports.VITE_DEV_SERVER_URL = main.VITE_DEV_SERVER_URL;

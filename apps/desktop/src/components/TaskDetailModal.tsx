@@ -35,13 +35,22 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   onCreate,
   onDelete,
 }) => {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    title: string;
+    description: string;
+    status: string;
+    priority: string;
+    estimatedHours: number | string;
+    actualHours: number | string;
+    dueDate: string;
+    milestoneId: string;
+  }>({
     title: "",
     description: "",
     status: "TODO",
     priority: "MEDIUM",
-    estimatedHours: 0,
-    actualHours: 0,
+    estimatedHours: "",
+    actualHours: "",
     dueDate: "",
     milestoneId: "",
   });
@@ -86,8 +95,8 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
           description: task.description || "",
           status: task.status,
           priority: task.priority,
-          estimatedHours: task.estimatedHours || 0,
-          actualHours: task.actualHours || 0,
+          estimatedHours: task.estimatedHours || "",
+          actualHours: task.actualHours || "",
           dueDate: task.dueDate
             ? new Date(task.dueDate).toISOString().split("T")[0]
             : "",
@@ -99,8 +108,8 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
           description: "",
           status: "TODO",
           priority: "MEDIUM",
-          estimatedHours: 0,
-          actualHours: 0,
+          estimatedHours: "",
+          actualHours: "",
           dueDate: "",
           milestoneId: "",
         });
@@ -122,14 +131,21 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     setError(null);
 
     try {
+      const estimatedHours = formData.estimatedHours
+        ? Number(formData.estimatedHours)
+        : undefined;
+      const actualHours = formData.actualHours
+        ? Number(formData.actualHours)
+        : undefined;
+
       if (task) {
         const updatedTask = await db.updateTask(task.id, {
           title: formData.title.trim(),
           description: formData.description.trim() || undefined,
           status: formData.status as Task["status"],
           priority: formData.priority as Task["priority"],
-          estimatedHours: formData.estimatedHours || undefined,
-          actualHours: formData.actualHours || undefined,
+          estimatedHours,
+          actualHours,
           dueDate: formData.dueDate ? new Date(formData.dueDate) : undefined,
           milestoneId: formData.milestoneId || undefined,
         });
@@ -141,7 +157,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
           title: formData.title.trim(),
           description: formData.description.trim() || undefined,
           priority: formData.priority as Task["priority"],
-          estimatedHours: formData.estimatedHours || undefined,
+          estimatedHours,
           dueDate: formData.dueDate ? new Date(formData.dueDate) : undefined,
           milestoneId: formData.milestoneId || undefined,
           order: 0, // Default order
@@ -327,10 +343,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   id="estimatedHours"
                   value={formData.estimatedHours}
                   onChange={(e) =>
-                    handleInputChange(
-                      "estimatedHours",
-                      parseInt(e.target.value) || 0
-                    )
+                    handleInputChange("estimatedHours", e.target.value)
                   }
                   min="0"
                   step="0.5"
@@ -353,10 +366,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     id="actualHours"
                     value={formData.actualHours}
                     onChange={(e) =>
-                      handleInputChange(
-                        "actualHours",
-                        parseInt(e.target.value) || 0
-                      )
+                      handleInputChange("actualHours", e.target.value)
                     }
                     min="0"
                     step="0.5"

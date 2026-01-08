@@ -115,11 +115,12 @@ function initializeAIService() {
 
   ipcMain.handle(
     "ai:generate-tasks",
-    async (_, planTitle: string, planGoal: string, existingTasks: string[]) => {
+    async (_, planTitle: string, planGoal: string, existingTasks: string[], count?: number) => {
       return await getAIService().generateTasks(
         planTitle,
         planGoal,
-        existingTasks
+        existingTasks,
+        count
       );
     }
   );

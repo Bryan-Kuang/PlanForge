@@ -55,6 +55,7 @@ class AIService {
         generatePlan: "ai:generate-plan",
         enhanceTask: "ai:enhance-task",
         suggestNextSteps: "ai:suggest-next-steps",
+        generateTasks: "ai:generate-tasks",
         getApiKey: "ai:get-api-key",
         setApiKey: "ai:set-api-key",
         deleteApiKey: "ai:delete-api-key",
@@ -165,7 +166,7 @@ class AIService {
   ): Promise<string[]> {
     if (this.isElectron()) {
       return await this.invokeAI(
-        "ai:suggest-next-steps",
+        "suggestNextSteps",
         planGoal,
         completedTasks,
         pendingTasks
@@ -182,14 +183,16 @@ class AIService {
   async generateTasks(
     planTitle: string,
     planGoal: string,
-    existingTasks: string[]
+    existingTasks: string[],
+    count?: number
   ): Promise<AIGeneratedTask[]> {
     if (this.isElectron()) {
       return await this.invokeAI(
-        "ai:generate-tasks",
+        "generateTasks",
         planTitle,
         planGoal,
-        existingTasks
+        existingTasks,
+        count
       );
     }
     // Mock data for web

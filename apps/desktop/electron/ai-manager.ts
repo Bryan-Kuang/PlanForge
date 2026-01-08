@@ -441,7 +441,8 @@ Provide a JSON array of actionable suggestions:
   async generateTasks(
     planTitle: string,
     planGoal: string,
-    existingTasks: string[]
+    existingTasks: string[],
+    count?: number
   ): Promise<AIGeneratedTask[]> {
     if (!this.openai) {
       const key = await this.getApiKey();
@@ -456,7 +457,8 @@ Provide a JSON array of actionable suggestions:
       throw new Error("AI service not initialized");
     }
 
-    const prompt = `Generate 3-5 specific, actionable tasks for the following plan:
+    const countText = count ? `${count}` : "3-5";
+    const prompt = `Generate ${countText} specific, actionable tasks for the following plan:
 
 Plan Title: "${planTitle}"
 Plan Goal: "${planGoal}"
