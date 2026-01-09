@@ -117,6 +117,8 @@ Thumbs.db
 *.swp
 *.swo
 *~
+docs/
+.trae/
 
 # Logs
 logs
