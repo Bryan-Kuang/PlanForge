@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Plus, Target, Clock, CheckCircle, AlertCircle } from "lucide-react";
 import { db, type Plan, type DashboardStats } from "../lib/database-api";
 
 const Dashboard: React.FC = () => {
+  const navigate = useNavigate();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -203,7 +204,8 @@ const Dashboard: React.FC = () => {
                 return (
                   <div
                     key={plan.id}
-                    className="bg-card p-6 rounded-lg border border-border hover:shadow-md transition-shadow"
+                    className="bg-card p-6 rounded-lg border border-border hover:shadow-lg transition-shadow cursor-pointer"
+                    onClick={() => navigate(`/plan/${plan.id}`)}
                   >
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex-1">
@@ -259,20 +261,6 @@ const Dashboard: React.FC = () => {
                     <div className="flex items-center justify-between">
                       <div className="text-xs text-muted-foreground">
                         Created {new Date(plan.createdAt).toLocaleDateString()}
-                      </div>
-                      <div className="space-x-2">
-                        <Link
-                          to={`/plan/${plan.id}`}
-                          className="text-sm text-primary hover:text-primary/80 transition-colors"
-                        >
-                          View Tasks
-                        </Link>
-                        <Link
-                          to={`/plan/${plan.id}`}
-                          className="text-sm text-primary hover:text-primary/80 transition-colors"
-                        >
-                          Edit Plan
-                        </Link>
                       </div>
                     </div>
                   </div>
