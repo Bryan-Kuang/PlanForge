@@ -1,0 +1,22 @@
+{
+  "packages": [
+    "nodejs@18.19.0",
+    "python@3.11",
+    "gnumake",
+    "gcc"
+  ],
+  "shell": {
+    "init_hook": [
+      "echo '🚀 Welcome to the PlanForge Reproducible Environment'",
+      "echo '📦 Node.js version: $(node -v)'",
+      "echo '🐍 Python version: $(python3 --version)'"
+    ],
+    "scripts": {
+      "install:all": "npm install && cd apps/desktop && npm install",
+      "dev": "cd apps/desktop && npm run dev",
+      "build": "cd apps/desktop && npm run build",
+      "build:mac": "cd apps/desktop && npm run build:mac",
+      "type-check": "cd apps/desktop && npm run type-check"
+    }
+  }
+}

@@ -5,30 +5,16 @@ import os from "node:os";
 import { DatabaseService } from "./database.js";
 import { AIServiceManager } from "./ai-manager.js";
 
-// --- ERROR HANDLING SETUP ---
-
-process.on("uncaughtException", (error) => {
-  console.error("CRITICAL: Uncaught Exception:", error.stack || error);
-  dialog.showErrorBox(
-    "Critical Error",
-    `Uncaught Exception: ${error.message}\nCheck console for details.`
-  );
-  process.exit(1);
-});
-
-process.on("unhandledRejection", (reason) => {
-  console.error("CRITICAL: Unhandled Rejection:", reason);
-  dialog.showErrorBox(
-    "Critical Error",
-    `Unhandled Rejection: ${String(reason)}\nCheck console for details.`
-  );
-  process.exit(1);
-});
-
-// ---------------------------
-
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// The built directory structure
+//
+// ├─┬ dist-electron
+// │ ├─┬ main.js    > Electron main
+// │ └─┬ preload.js > Preload scripts
+// ├─┬ dist
+// │ └── index.html  > Electron renderer
+//
 process.env.APP_ROOT = path.join(__dirname, "..");
 
 export const VITE_DEV_SERVER_URL = process.env["VITE_DEV_SERVER_URL"];
@@ -46,19 +32,27 @@ if (os.release().startsWith("6.1")) app.disableHardwareAcceleration();
 if (process.platform === "win32") app.setAppUserModelId(app.getName());
 
 if (!app.requestSingleInstanceLock()) {
-  console.log("Could not acquire single instance lock. Quitting.");
   app.quit();
   process.exit(0);
 }
 
+// Install "react-devtools"
+// app.whenReady().then(() => import('electron-devtools-installer')).then(({default: installExtension, REACT_DEVELOPER_TOOLS}) => installExtension(REACT_DEVELOPER_TOOLS, {
+//   loadExtensionOptions: {
+//     allowFileAccess: true,
+//   },
+// }))
+
 let win: BrowserWindow | null = null;
-let db: any | null = null;
+let db: DatabaseService | null = null;
 let aiService: AIServiceManager | null = null;
 let dbInitialized = false;
 
+// Here, you can also use other preload
 const preload = path.join(__dirname, "preload.js");
 const url = process.env.VITE_DEV_SERVER_URL;
 
+// Helper function to check if database is available
 function ensureDatabase() {
   if (!db || !dbInitialized) {
     throw new Error(
@@ -68,6 +62,7 @@ function ensureDatabase() {
   return db;
 }
 
+// Helper function to get AI Service instance with DB injection
 function getAIService(): AIServiceManager {
   if (!aiService) {
     aiService = new AIServiceManager();
@@ -78,10 +73,12 @@ function getAIService(): AIServiceManager {
   return aiService;
 }
 
+// Initialize AI Service
 function initializeAIService() {
-  console.log("Initializing AI Service...");
+  // Initial creation
   getAIService();
 
+  // Register IPC handlers for AI
   ipcMain.handle("ai:initialize", async (_, apiKey: string) => {
     return await getAIService().initialize(apiKey);
   });
@@ -118,13 +115,7 @@ function initializeAIService() {
 
   ipcMain.handle(
     "ai:generate-tasks",
-    async (
-      _,
-      planTitle: string,
-      planGoal: string,
-      existingTasks: string[],
-      count?: number
-    ) => {
+    async (_, planTitle: string, planGoal: string, existingTasks: string[], count?: number) => {
       return await getAIService().generateTasks(
         planTitle,
         planGoal,
@@ -145,13 +136,12 @@ function initializeAIService() {
   ipcMain.handle("ai:delete-api-key", async () => {
     return await getAIService().deleteApiKey();
   });
-  console.log("AI Service initialized.");
 }
 
+// Initialize AI Service immediately
 initializeAIService();
 
 async function createWindow() {
-  console.log("Creating main window...");
   win = new BrowserWindow({
     title: "PlanForge",
     width: 1200,
@@ -160,46 +150,51 @@ async function createWindow() {
     minHeight: 600,
     webPreferences: {
       preload,
+      // Warning: Enable nodeIntegration and disable contextIsolation is not secure in production
+      // Consider using contextBridge.exposeInMainWorld
+      // Read more on https://www.electronjs.org/docs/latest/tutorial/context-isolation
       nodeIntegration: false,
       contextIsolation: true,
     },
     titleBarStyle: "default",
-    show: false,
+    show: false, // Don't show until ready
   });
 
+  // Show window when ready to prevent visual flash
   win.once("ready-to-show", () => {
-    console.log("Window ready to show.");
     win?.show();
 
+    // Open DevTools in development
     if (VITE_DEV_SERVER_URL) {
       win?.webContents.openDevTools();
     }
   });
 
+  // Test active push message to Renderer-process.
   win.webContents.on("did-finish-load", () => {
-    console.log("Window finished loading.");
     win?.webContents.send("main-process-message", new Date().toLocaleString());
   });
 
   if (VITE_DEV_SERVER_URL) {
-    console.log("Loading Dev Server URL:", VITE_DEV_SERVER_URL);
     win.loadURL(VITE_DEV_SERVER_URL);
   } else {
-    const indexPath = path.join(RENDERER_DIST, "index.html");
-    console.log("Loading production index:", indexPath);
-    win.loadFile(indexPath);
+    // win.loadFile('dist/index.html')
+    win.loadFile(path.join(RENDERER_DIST, "index.html"));
   }
 
+  // Make all links open with the browser, not with the application
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith("https:")) shell.openExternal(url);
     return { action: "deny" };
   });
-  console.log("Window created successfully.");
+  // win.webContents.on('will-navigate', (event, navigationUrl) => { ... })
 }
 
+// Initialize app
 app.whenReady().then(async () => {
-  console.log("App is ready. Initializing database...");
+  // Initialize database
   try {
+    console.log("Initializing database...");
     db = new DatabaseService();
     await db.initialize();
     dbInitialized = true;
@@ -209,8 +204,9 @@ app.whenReady().then(async () => {
       aiService.setDatabase(db);
     }
   } catch (error) {
-    console.log("Failed to initialize database:", error);
+    console.error("Failed to initialize database:", error);
 
+    // Show error dialog
     const result = await dialog.showMessageBox({
       type: "error",
       title: "Database Error",
@@ -224,34 +220,34 @@ app.whenReady().then(async () => {
     });
 
     if (result.response === 1) {
-      console.log("User chose to exit on DB error.");
       app.quit();
       return;
     }
 
+    // Continue without database (limited functionality)
     dbInitialized = false;
-    console.log("User chose to continue without DB.");
   }
 
   createWindow();
 });
 
+// Quit when all windows are closed, except on macOS. There, it's common
+// for applications and their menu bar to stay active until the user quits
+// explicitly with Cmd + Q.
 app.on("window-all-closed", () => {
-  console.log("All windows closed.");
   win = null;
   if (process.platform !== "darwin") app.quit();
 });
 
 app.on("second-instance", () => {
-  console.log("Second instance detected.");
   if (win) {
+    // Focus on the main window if the user tried to open another
     if (win.isMinimized()) win.restore();
     win.focus();
   }
 });
 
 app.on("activate", () => {
-  console.log("App activated.");
   const allWindows = BrowserWindow.getAllWindows();
   if (allWindows.length === 0) {
     createWindow();
@@ -260,6 +256,7 @@ app.on("activate", () => {
   }
 });
 
+// New window example arg: new windows url
 ipcMain.handle("open-win", (_, arg) => {
   const childWindow = new BrowserWindow({
     webPreferences: {
@@ -276,8 +273,9 @@ ipcMain.handle("open-win", (_, arg) => {
   }
 });
 
+// Handle app quit
 app.on("before-quit", async () => {
-  console.log("App is quitting (before-quit).");
+  console.log("App is quitting");
   if (db && dbInitialized) {
     await db.disconnect();
   }
@@ -292,6 +290,7 @@ ipcMain.handle("get-platform", () => {
   return process.platform;
 });
 
+// Database test connection
 ipcMain.handle("db:test-connection", async () => {
   try {
     const database = ensureDatabase();
@@ -306,6 +305,7 @@ ipcMain.handle("db:test-connection", async () => {
   }
 });
 
+// Database IPC handlers
 // Plan operations
 ipcMain.handle("db:create-plan", async (_, data) => {
   try {

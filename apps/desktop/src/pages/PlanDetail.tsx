@@ -19,7 +19,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { db, type Plan, type Task, type Milestone } from "../lib/database-api";
-import { aiService, type AIGeneratedTask } from "../lib/ai-service";
+import { aiService } from "../lib/ai-service";
 import TaskDetailModal from "../components/TaskDetailModal";
 
 const PlanDetail: React.FC = () => {

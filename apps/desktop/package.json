@@ -63,7 +63,7 @@
   "build": {
     "appId": "com.planforge.desktop",
     "productName": "PlanForge",
-    "electronVersion": "28.0.0",
+    "electronVersion": "28.3.3",
     "directories": {
       "output": "release/${version}"
     },
@@ -71,6 +71,9 @@
       "dist-electron",
       "dist",
       "node_modules/@prisma/**/*"
+    ],
+    "extraResources": [
+      "prisma/planforge.db"
     ],
     "asarUnpack": [
       "dist-electron/.prisma/**/*",
