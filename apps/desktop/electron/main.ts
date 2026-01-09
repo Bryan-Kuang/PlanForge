@@ -123,12 +123,14 @@ function initializeAIService() {
       planTitle: string,
       planGoal: string,
       existingTasks: string[],
+      existingMilestones: string[],
       count?: number
     ) => {
       return await getAIService().generateTasks(
         planTitle,
         planGoal,
         existingTasks,
+        existingMilestones,
         count
       );
     }

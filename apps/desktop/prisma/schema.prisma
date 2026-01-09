@@ -64,7 +64,7 @@ model Task {
   planId       String
   plan         Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
   milestoneId  String?
-  milestone    Milestone? @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  milestone    Milestone? @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
   
   // Task dependencies
   dependsOn    TaskDependency[] @relation("DependentTask")

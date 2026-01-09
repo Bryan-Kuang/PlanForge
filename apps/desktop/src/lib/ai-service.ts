@@ -22,6 +22,7 @@ export interface AIGeneratedTask {
   milestoneIndex?: number;
   order: number;
   prerequisites?: string[];
+  milestoneName?: string;
 }
 
 export interface AISettings {
@@ -184,6 +185,7 @@ class AIService {
     planTitle: string,
     planGoal: string,
     existingTasks: string[],
+    existingMilestones: string[],
     count?: number
   ): Promise<AIGeneratedTask[]> {
     if (this.isElectron()) {
@@ -192,6 +194,7 @@ class AIService {
         planTitle,
         planGoal,
         existingTasks,
+        existingMilestones,
         count
       );
     }
@@ -203,6 +206,7 @@ class AIService {
         priority: "HIGH",
         estimatedHours: 4,
         order: 1,
+        milestoneName: "Phase 1: Research",
       },
       {
         title: "Define user personas",
@@ -210,6 +214,7 @@ class AIService {
         priority: "MEDIUM",
         estimatedHours: 3,
         order: 2,
+        milestoneName: "Phase 1: Research",
       },
     ];
   }

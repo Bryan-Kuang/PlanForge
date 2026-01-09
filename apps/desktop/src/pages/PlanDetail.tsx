@@ -17,10 +17,12 @@ import {
   Sparkles,
   Lightbulb,
   RefreshCw,
+  Trash2,
 } from "lucide-react";
 import { db, type Plan, type Task, type Milestone } from "../lib/database-api";
 import { aiService } from "../lib/ai-service";
 import TaskDetailModal from "../components/TaskDetailModal";
+import CreateMilestoneModal from "../components/CreateMilestoneModal";
 
 const PlanDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -44,6 +46,9 @@ const PlanDetail: React.FC = () => {
   const [tasksToGenerate, setTasksToGenerate] = useState<number | undefined>(
     undefined
   );
+
+  // Milestone Modal State
+  const [showMilestoneModal, setShowMilestoneModal] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -153,6 +158,32 @@ const PlanDetail: React.FC = () => {
     setShowTaskModal(true);
   };
 
+  const handleMilestoneCreated = () => {
+    if (id) {
+      loadPlan(id, true);
+    }
+  };
+
+  const handleDeleteMilestone = async (milestoneId: string) => {
+    if (
+      !window.confirm(
+        "Are you sure you want to delete this milestone? All tasks within it will also be deleted."
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await db.deleteMilestone(milestoneId);
+      if (id) {
+        loadPlan(id, true);
+      }
+    } catch (err) {
+      console.error("Failed to delete milestone:", err);
+      setError("Failed to delete milestone");
+    }
+  };
+
   const handleEditTask = (task: Task) => {
     setSelectedTask(task);
     setShowTaskModal(true);
@@ -208,15 +239,43 @@ const PlanDetail: React.FC = () => {
       }
 
       const existingTaskTitles = plan.tasks?.map((t) => t.title) || [];
+      const existingMilestoneTitles =
+        plan.milestones?.map((m) => m.title) || [];
+
       const generatedTasks = await aiService.generateTasks(
         plan.title,
         plan.goal,
         existingTaskTitles,
+        existingMilestoneTitles,
         tasksToGenerate
       );
 
+      // Keep track of milestones locally to handle newly created ones in the same batch
+      const currentMilestones = [...(plan.milestones || [])];
+
       // Create tasks in DB
       for (const task of generatedTasks) {
+        let milestoneId: string | undefined = undefined;
+
+        if (task.milestoneName) {
+          const existing = currentMilestones.find(
+            (m) => m.title.toLowerCase() === task.milestoneName!.toLowerCase()
+          );
+
+          if (existing) {
+            milestoneId = existing.id;
+          } else {
+            // Create new milestone
+            const newMilestone = await db.createMilestone({
+              title: task.milestoneName,
+              planId: plan.id,
+              order: currentMilestones.length + 1,
+            });
+            milestoneId = newMilestone.id;
+            currentMilestones.push(newMilestone);
+          }
+        }
+
         await db.createTask({
           planId: plan.id,
           title: task.title,
@@ -224,6 +283,7 @@ const PlanDetail: React.FC = () => {
           priority: task.priority,
           estimatedHours: task.estimatedHours,
           order: task.order,
+          milestoneId: milestoneId,
         });
       }
 
@@ -597,6 +657,13 @@ const PlanDetail: React.FC = () => {
               >
                 <Plus className="h-5 w-5" />
               </button>
+              <button
+                onClick={() => setShowMilestoneModal(true)}
+                className="p-2 hover:bg-accent rounded-lg transition-colors"
+                title="Add Milestone"
+              >
+                <Target className="h-5 w-5" />
+              </button>
             </div>
           </div>
 
@@ -612,13 +679,22 @@ const PlanDetail: React.FC = () => {
                     {milestone.title}
                   </h4>
                 </div>
-                <span
-                  className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                    milestone.status
-                  )}`}
-                >
-                  {milestone.status}
-                </span>
+                <div className="flex items-center space-x-2">
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                      milestone.status
+                    )}`}
+                  >
+                    {milestone.status}
+                  </span>
+                  <button
+                    onClick={() => handleDeleteMilestone(milestone.id)}
+                    className="p-1 hover:bg-destructive/10 text-muted-foreground hover:text-destructive rounded transition-colors"
+                    title="Delete Milestone"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
 
               {milestone.description && (
@@ -908,6 +984,15 @@ const PlanDetail: React.FC = () => {
         onUpdate={handleTaskUpdated}
         onCreate={handleTaskCreated}
         onDelete={handleTaskDeleted}
+      />
+
+      {/* Milestone Modal */}
+      <CreateMilestoneModal
+        planId={plan.id}
+        isOpen={showMilestoneModal}
+        onClose={() => setShowMilestoneModal(false)}
+        onCreate={handleMilestoneCreated}
+        nextOrder={(plan.milestones?.length || 0) + 1}
       />
     </div>
   );

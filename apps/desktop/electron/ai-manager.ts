@@ -29,6 +29,7 @@ export interface AIGeneratedTask {
   milestoneIndex?: number;
   order: number;
   prerequisites?: string[];
+  milestoneName?: string;
 }
 
 export interface AISettings {
@@ -442,6 +443,7 @@ Provide a JSON array of actionable suggestions:
     planTitle: string,
     planGoal: string,
     existingTasks: string[],
+    existingMilestones: string[],
     count?: number
   ): Promise<AIGeneratedTask[]> {
     if (!this.openai) {
@@ -463,6 +465,7 @@ Provide a JSON array of actionable suggestions:
 Plan Title: "${planTitle}"
 Plan Goal: "${planGoal}"
 Existing Tasks: ${existingTasks.join(", ")}
+Existing Milestones: ${existingMilestones.join(", ")}
 
 Provide a JSON array of tasks in this format:
 [
@@ -471,10 +474,11 @@ Provide a JSON array of tasks in this format:
     "description": "Task description",
     "priority": "HIGH|MEDIUM|LOW",
     "estimatedHours": 2,
-    "order": 1
+    "order": 1,
+    "milestoneName": "Name of an existing milestone OR a new milestone name if appropriate"
   }
 ]
-Focus on tasks that are missing or would be logical next steps.`;
+Focus on tasks that are missing or would be logical next steps. Assign each task to the most relevant milestone. If no existing milestone fits, suggest a new one.`;
 
     try {
       const completion = await this.openai.chat.completions.create({
