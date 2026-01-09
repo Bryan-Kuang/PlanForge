@@ -23,6 +23,7 @@ import { db, type Plan, type Task, type Milestone } from "../lib/database-api";
 import { aiService } from "../lib/ai-service";
 import TaskDetailModal from "../components/TaskDetailModal";
 import CreateMilestoneModal from "../components/CreateMilestoneModal";
+import Tooltip from "../components/Tooltip";
 
 const PlanDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -460,12 +461,14 @@ const PlanDetail: React.FC = () => {
           >
             Task Board
           </Link>
-          <button
-            onClick={() => setEditingPlan(!editingPlan)}
-            className="p-2 hover:bg-accent rounded-lg transition-colors"
-          >
-            <Edit className="h-5 w-5" />
-          </button>
+          <Tooltip text="Edit Plan Details">
+            <button
+              onClick={() => setEditingPlan(!editingPlan)}
+              className="p-2 hover:bg-accent rounded-lg transition-colors"
+            >
+              <Edit className="h-5 w-5" />
+            </button>
+          </Tooltip>
         </div>
       </div>
 
@@ -638,32 +641,35 @@ const PlanDetail: React.FC = () => {
                   </div>
                 </div>
               )}
-              <button
-                onClick={() => setShowGenerateSettings(!showGenerateSettings)}
-                disabled={isGeneratingTasks}
-                className="p-2 hover:bg-accent rounded-lg transition-colors text-primary"
-                title="Generate Tasks with AI"
-              >
-                {isGeneratingTasks ? (
-                  <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <Sparkles className="h-5 w-5" />
-                )}
-              </button>
-              <button
-                onClick={handleCreateTask}
-                className="p-2 hover:bg-accent rounded-lg transition-colors"
-                title="Add Task"
-              >
-                <Plus className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => setShowMilestoneModal(true)}
-                className="p-2 hover:bg-accent rounded-lg transition-colors"
-                title="Add Milestone"
-              >
-                <Target className="h-5 w-5" />
-              </button>
+              <Tooltip text="Generate Tasks with AI">
+                <button
+                  onClick={() => setShowGenerateSettings(!showGenerateSettings)}
+                  disabled={isGeneratingTasks}
+                  className="p-2 hover:bg-accent rounded-lg transition-colors text-primary"
+                >
+                  {isGeneratingTasks ? (
+                    <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Sparkles className="h-5 w-5" />
+                  )}
+                </button>
+              </Tooltip>
+              <Tooltip text="Add Task">
+                <button
+                  onClick={handleCreateTask}
+                  className="p-2 hover:bg-accent rounded-lg transition-colors"
+                >
+                  <Plus className="h-5 w-5" />
+                </button>
+              </Tooltip>
+              <Tooltip text="Add Milestone">
+                <button
+                  onClick={() => setShowMilestoneModal(true)}
+                  className="p-2 hover:bg-accent rounded-lg transition-colors"
+                >
+                  <Target className="h-5 w-5" />
+                </button>
+              </Tooltip>
             </div>
           </div>
 
@@ -687,13 +693,14 @@ const PlanDetail: React.FC = () => {
                   >
                     {milestone.status}
                   </span>
-                  <button
-                    onClick={() => handleDeleteMilestone(milestone.id)}
-                    className="p-1 hover:bg-destructive/10 text-muted-foreground hover:text-destructive rounded transition-colors"
-                    title="Delete Milestone"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  <Tooltip text="Delete Milestone">
+                    <button
+                      onClick={() => handleDeleteMilestone(milestone.id)}
+                      className="p-1 hover:bg-destructive/10 text-muted-foreground hover:text-destructive rounded transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </Tooltip>
                 </div>
               </div>
 
@@ -748,12 +755,14 @@ const PlanDetail: React.FC = () => {
                           {task.priority}
                         </span>
                       )}
-                      <button
-                        onClick={() => handleEditTask(task)}
-                        className="p-1 hover:bg-accent rounded"
-                      >
-                        <MoreHorizontal className="h-3 w-3" />
-                      </button>
+                      <Tooltip text="Edit Task" position="left">
+                        <button
+                          onClick={() => handleEditTask(task)}
+                          className="p-1 hover:bg-accent rounded"
+                        >
+                          <MoreHorizontal className="h-3 w-3" />
+                        </button>
+                      </Tooltip>
                     </div>
                   </div>
                 ))}
@@ -819,9 +828,11 @@ const PlanDetail: React.FC = () => {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-foreground">Resources</h3>
-            <button className="p-2 hover:bg-accent rounded-lg transition-colors">
-              <Plus className="h-4 w-4" />
-            </button>
+            <Tooltip text="Add Resource">
+              <button className="p-2 hover:bg-accent rounded-lg transition-colors">
+                <Plus className="h-4 w-4" />
+              </button>
+            </Tooltip>
           </div>
 
           {plan.resources && plan.resources.length > 0 ? (
@@ -846,14 +857,16 @@ const PlanDetail: React.FC = () => {
                       </span>
                     </div>
                     {resource.url && (
-                      <a
-                        href={resource.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-2 hover:bg-accent rounded-lg transition-colors"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                      </a>
+                      <Tooltip text="Open Link" position="left">
+                        <a
+                          href={resource.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-2 hover:bg-accent rounded-lg transition-colors inline-block"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
+                      </Tooltip>
                     )}
                   </div>
                 </div>
